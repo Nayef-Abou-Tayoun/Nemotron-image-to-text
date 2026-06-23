@@ -1,25 +1,33 @@
 from fastapi import FastAPI, UploadFile, File
 from PIL import Image
 import io
-from transformers import AutoProcessor, AutoModel
+from transformers import AutoModel
 import torch
 
 app = FastAPI()
 
 # Load model at startup (CPU-optimized)
 print("Loading Nemotron OCR v2 model...")
-processor = AutoProcessor.from_pretrained("nvidia/nemotron-ocr-v2", trust_remote_code=True)
-model = AutoModel.from_pretrained(
-    "nvidia/nemotron-ocr-v2",
-    trust_remote_code=True,
-    torch_dtype=torch.float32,  # Use float32 for CPU
-    device_map="cpu"
-)
-print("Model loaded successfully!")
+try:
+    model = AutoModel.from_pretrained(
+        "nvidia/nemotron-ocr-v2",
+        trust_remote_code=True,
+        torch_dtype=torch.float32,  # Use float32 for CPU
+        device_map="cpu"
+    )
+    print("Model loaded successfully!")
+except Exception as e:
+    print(f"Error loading model: {e}")
+    model = None
 
 @app.get("/")
 def health():
-    return {"status": "ok", "model": "nemotron-ocr-v2", "device": "cpu"}
+    return {
+        "status": "ok" if model is not None else "error",
+        "model": "nemotron-ocr-v2",
+        "device": "cpu",
+        "model_loaded": model is not None
+    }
 
 @app.post("/ocr")
 async def ocr(file: UploadFile = File(...)):
@@ -27,23 +35,30 @@ async def ocr(file: UploadFile = File(...)):
     OCR endpoint that accepts an image file and returns extracted text.
     Optimized for CPU inference.
     """
+    if model is None:
+        return {
+            "filename": file.filename,
+            "error": "Model not loaded",
+            "status": "error"
+        }
+    
     try:
         # Read and process image
         image_bytes = await file.read()
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         
-        # Run OCR inference
-        inputs = processor(images=image, return_tensors="pt")
-        
-        # Move inputs to CPU explicitly
-        inputs = {k: v.to("cpu") for k, v in inputs.items()}
-        
-        # Generate OCR output
+        # The model has its own processing built-in with trust_remote_code
+        # Call the model directly with the image
         with torch.no_grad():
-            outputs = model.generate(**inputs, max_new_tokens=512)
+            result = model.generate(image, max_new_tokens=512)
         
-        # Decode the output
-        text = processor.batch_decode(outputs, skip_special_tokens=True)[0]
+        # Extract text from result
+        if isinstance(result, str):
+            text = result
+        elif hasattr(result, 'text'):
+            text = result.text
+        else:
+            text = str(result)
         
         return {
             "filename": file.filename,
