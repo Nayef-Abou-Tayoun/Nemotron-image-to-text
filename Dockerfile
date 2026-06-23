@@ -17,9 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 
 # Pre-download the model during build to avoid runtime download
-RUN python -c "from transformers import AutoProcessor, AutoModel; \
+RUN python -c "from transformers import AutoModel; \
     print('Downloading Nemotron OCR v2 model...'); \
-    AutoProcessor.from_pretrained('nvidia/nemotron-ocr-v2', trust_remote_code=True); \
     AutoModel.from_pretrained('nvidia/nemotron-ocr-v2', trust_remote_code=True); \
     print('Model downloaded successfully!')"
 
