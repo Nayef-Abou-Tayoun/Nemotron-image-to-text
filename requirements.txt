@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+pillow
+torch
+transformers
+huggingface_hub
