@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 from PIL import Image
 import io
-from transformers import AutoProcessor, AutoModelForVision2Seq
+from transformers import AutoProcessor, AutoModel
 import torch
 
 app = FastAPI()
@@ -9,7 +9,7 @@ app = FastAPI()
 # Load model at startup (CPU-optimized)
 print("Loading Nemotron OCR v2 model...")
 processor = AutoProcessor.from_pretrained("nvidia/nemotron-ocr-v2", trust_remote_code=True)
-model = AutoModelForVision2Seq.from_pretrained(
+model = AutoModel.from_pretrained(
     "nvidia/nemotron-ocr-v2",
     trust_remote_code=True,
     torch_dtype=torch.float32,  # Use float32 for CPU
